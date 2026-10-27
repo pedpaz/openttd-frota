@@ -3,7 +3,8 @@
 # dos tiles da peça e grava PNG + máscara vazia. A posição de referência (subtile) define o offset do sprite.
 # Uso: python3 renderizar_objeto.py -- modelo.glb pasta_saida JSON
 #   JSON = lista de {"nome", "tile": [tx, ty], "ref": [sx, sy], "clip": [ox0, ox1, oy0, oy1] | null,
-#                    "chao": bool (sprite de chão 256x127, só objetos 'campo*', sem sombra)}
+#                    "chao": bool (sprite de chão 256x127, só objetos 'campo*', sem sombra),
+#                    "fundo": png em ferramentas/fundos/ posto por baixo do chão (opcional)}
 #   Coordenadas em unidades do OpenTTD (16 por tile) a partir do canto norte do objeto.
 import bpy, math, os, sys, json
 from mathutils import Vector
@@ -141,6 +142,14 @@ def render(spec, prefixo=''):
     chao.hide_render = so_campo or prefixo == 'm'
     sc.render.filepath = os.path.join(OUTDIR, f"{prefixo}{spec['nome']}.png")
     bpy.ops.render.render(write_still=True)
+    if spec.get('fundo') and prefixo != 'm':
+        # chão do conjunto base (ex.: grama 3981 do OpenGFX2 High Def) por baixo do render, para casar a cor
+        from PIL import Image
+        fundo = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fundos', spec['fundo']))
+        base = Image.new('RGBA', (W, H))
+        base.paste(fundo, (0, Cy), fundo)
+        im = Image.open(sc.render.filepath).convert('RGBA')
+        Image.alpha_composite(base, im).save(sc.render.filepath)
     # offsets do sprite (4x): referência = ponto do subtile no chão; origem de desenho = geométrico - (4, 0)
     sx, sy = spec.get('ref', [tx * 16, ty * 16])
     rx = Cx + 8 * ((sy - ty * 16) - (sx - tx * 16))

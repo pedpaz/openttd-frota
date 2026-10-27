@@ -67,11 +67,17 @@ coeficiente de tração de pneu (0,42 a 0,45) e arrasto pelo formato da carrocer
 ## Cenário (cenario.grf)
 
 Um segundo mod, `cenario.grf`, troca sprites do cenário que o OpenGFX2 High Def ainda não tem em 4×, sem mudar regra
-nenhuma: estátua equestre, chafariz, as duas praças e o estádio (com o gramado) das cidades, e todas as peças da mina
-de carvão e da usina termelétrica. Os modelos ficam em `modelos/cidade.py` e `modelos/industria.py`; a lista de
+nenhuma: estátua equestre, chafariz, as duas praças e o estádio (com o gramado) das cidades, e todas as indústrias
+do clima temperado que faltavam: mina de carvão, usina termelétrica, fazenda, fábrica, serraria, poços de petróleo
+(com os 6 quadros da bomba), refinaria, siderúrgica e mina de ferro. Os modelos ficam em `modelos/cidade.py`,
+`modelos/industria.py` (mina de carvão e usina), `modelos/industria2.py` (fazenda, fábrica, serraria e poços) e
+`modelos/industria3.py` (refinaria, siderúrgica e mina de ferro); a lista de
 sprites trocados, com a posição de referência de cada um no tile, fica em `cenario.json`. Para renderizar:
 `ferramentas/renderizar_cenario.sh` (ou só alguns modelos). O alinhamento é o mesmo do jogo: cada sprite é desenhado
 a partir do ponto do subtile definido no código do OpenTTD.
+
+As indústrias que o jogo pinta com uma cor sorteada (refinaria, fazenda, fábrica e siderúrgica) por enquanto saem
+sempre com as cores do modelo.
 
 As texturas (tijolo, ardósia, zinco ondulado, concreto manchado, terra, carvão, folhagem, grama, madeira e pedra)
 são procedurais e entram na hora do render, pelo nome do material: `ferramentas/texturas.py`. Para comparar sem
