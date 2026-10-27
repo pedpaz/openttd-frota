@@ -51,6 +51,12 @@ class Vitrine extends AIController {
                    AIOrder.OF_NON_STOP_INTERMEDIATE | AIOrder.OF_NO_LOAD | AIOrder.OF_NO_UNLOAD);
     }
     AILog.Info("IDX " + idx);
+    if (idx == 1) {
+      foreach (ind, _ in AIIndustryList()) {
+        local nm = AIIndustryType.GetName(AIIndustry.GetIndustryType(ind));
+        AILog.Info("INDUSTRIA " + nm + " " + AIIndustry.GetLocation(ind));
+      }
+    }
     if (idx == 1) this.Ferrovias(c, motores);
     AILog.Info("PRONTO");
     while (true) this.Sleep(1000);

@@ -8,4 +8,4 @@ done
 pgrep -x Xvfb >/dev/null || (setsid Xvfb :99 -screen 0 1600x960x24 >/dev/null 2>&1 &)
 sleep 2
 ANO=${2:-1950}; GFX=${3:-OpenGFX2 High Def}
-cd /root/jgr/build && DISPLAY=:99 SDL_AUDIODRIVER=dummy setsid ./openttd -I "$GFX" -g -G 4242 -t $ANO -v sdl -s null -m null -b 32bpp-anim -r 1600x960 -d script=4 > /tmp/claude-0/-home-claude/57c43f7d-e9ab-5cae-a678-a344d77c3b97/scratchpad/jogo.log 2>&1 &
+cd ${BIN_DIR:-/home/claude/openttd-motor/build} && DISPLAY=:99 SDL_AUDIODRIVER=dummy setsid ./openttd -I "$GFX" -g -G 4242 -t $ANO -v sdl -s null -m null -b 32bpp-anim -r 1600x960 -d script=4,misc=3 > /tmp/claude-0/-home-claude/57c43f7d-e9ab-5cae-a678-a344d77c3b97/scratchpad/jogo.log 2>&1 &

@@ -22,4 +22,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frota-grf
-          path: build/frota.grf
+          path: |
+            build/frota.grf
+            build/cenario.grf

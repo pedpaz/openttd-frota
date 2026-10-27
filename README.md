@@ -64,6 +64,15 @@ Os 11 rodoviários usam o peso vazio de caminhões e ônibus britânicos da épo
 coeficiente de tração de pneu (0,42 a 0,45) e arrasto pelo formato da carroceria (tanque e caçamba menos, baú e
 ônibus mais). Valores na tabela `FISICA` do `ferramentas/montar.py`. A carga continua pesando conforme o tipo de carga.
 
+## Cenário (cenario.grf)
+
+Um segundo mod, `cenario.grf`, troca sprites do cenário que o OpenGFX2 High Def ainda não tem em 4×, sem mudar regra
+nenhuma: estátua equestre, chafariz, as duas praças e o estádio (com o gramado) das cidades, e todas as peças da mina
+de carvão e da usina termelétrica. Os modelos ficam em `modelos/cidade.py` e `modelos/industria.py`; a lista de
+sprites trocados, com a posição de referência de cada um no tile, fica em `cenario.json`. Para renderizar:
+`ferramentas/renderizar_cenario.sh` (ou só alguns modelos). O alinhamento é o mesmo do jogo: cada sprite é desenhado
+a partir do ponto do subtile definido no código do OpenTTD.
+
 ## Cor da empresa
 
 A pintura de cada veículo sai do render em cinza e ganha uma **máscara**: o jogo troca esse cinza pela cor de cada companhia e só aproveita o sombreado do render. Os materiais tratados como pintura estão em `NOMES_PINTURA`, no `ferramentas/renderizar.py`.

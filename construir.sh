@@ -3,6 +3,8 @@
 set -e
 cd "$(dirname "$0")"
 python3 ferramentas/montar.py
+python3 ferramentas/montar_cenario.py
 cd build
 nmlc -c --grf frota.grf frota.nml
-echo "pronto: build/frota.grf"
+nmlc -c --grf cenario.grf cenario.nml
+echo "pronto: build/frota.grf e build/cenario.grf"

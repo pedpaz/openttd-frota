@@ -1,3 +1,5 @@
 ##grflangid 0x01
 STR_GRF_NAME :Frota 1950 (Pedro)
 STR_GRF_DESC :Veiculos rodoviarios do TTD original renderizados a partir de modelos 3D. Zoom 4x, 32 bits. Mesmas regras do jogo.
+STR_GRF_NAME_CENARIO :Cenario 1950 (Pedro)
+STR_GRF_DESC_CENARIO :Objetos de cidade e industrias redesenhados em 3D para o zoom 4x (32 bits), por cima do OpenGFX2 High Def.
