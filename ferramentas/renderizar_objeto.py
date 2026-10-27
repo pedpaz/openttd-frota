@@ -66,8 +66,13 @@ def cortar(m):
     CORTES.append(nos)
 
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import texturas
+SEM_TEXTURA = os.environ.get('SEM_TEXTURA')
 for m in list(bpy.data.materials):
     if m.use_nodes:
+        if not SEM_TEXTURA:
+            texturas.aplicar(m)
         cortar(m)
 
 cam_data = bpy.data.cameras.new('cam')

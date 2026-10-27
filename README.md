@@ -73,6 +73,10 @@ sprites trocados, com a posição de referência de cada um no tile, fica em `ce
 `ferramentas/renderizar_cenario.sh` (ou só alguns modelos). O alinhamento é o mesmo do jogo: cada sprite é desenhado
 a partir do ponto do subtile definido no código do OpenTTD.
 
+As texturas (tijolo, ardósia, zinco ondulado, concreto manchado, terra, carvão, folhagem, grama, madeira e pedra)
+são procedurais e entram na hora do render, pelo nome do material: `ferramentas/texturas.py`. Para comparar sem
+elas: `SEM_TEXTURA=1 ferramentas/renderizar_cenario.sh`.
+
 ## Cor da empresa
 
 A pintura de cada veículo sai do render em cinza e ganha uma **máscara**: o jogo troca esse cinza pela cor de cada companhia e só aproveita o sombreado do render. Os materiais tratados como pintura estão em `NOMES_PINTURA`, no `ferramentas/renderizar.py`.

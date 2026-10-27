@@ -159,7 +159,7 @@ def chao_terra(k, M, monte=None, semente=1):
     x0, y0, _ = P(k, 0, 0)
     bx('chao_terra', 12.0, 12.0, 0.02, (x0 - 6, y0 - 6, 0.01), M['terra'])
     rnd = random.Random(semente)
-    for i in range(14):
+    for i in range(0):
         x = x0 - rnd.uniform(1, 11); y = y0 - rnd.uniform(1, 11)
         bx('chao_mancha', rnd.uniform(1, 2.5), rnd.uniform(0.6, 1.5), 0.02, (x, y, 0.035 + i * 0.002), M['terra2'], (0, 0, rnd.uniform(0, 3)))
     if monte:
