@@ -18,15 +18,15 @@ O GitHub roda o passo 3 sozinho a cada envio e deixa o `frota.grf` para baixar n
 |---|---|---|
 | MPS Regal Bus | ✔ | ✔ |
 | Balogh Coal Truck | ✔ | ✔ |
-| MPS Mail Truck | ✔ | — |
-| Witcombe Oil Tanker | ✔ | — |
-| Talbott Livestock Van | ✔ | — |
-| Balogh Goods Truck | ✔ | — |
-| Hereford Grain Truck | ✔ | — |
-| Witcombe Wood Truck | ✔ | — |
-| MPS Iron Ore Truck | ✔ | — |
-| Balogh Steel Truck | ✔ | — |
-| Balogh Armoured Truck | ✔ | — |
+| MPS Mail Truck | ✔ | ✔ |
+| Witcombe Oil Tanker | ✔ | ✔ |
+| Talbott Livestock Van | ✔ | ✔ |
+| Balogh Goods Truck | ✔ | ✔ |
+| Hereford Grain Truck | ✔ | ✔ |
+| Witcombe Wood Truck | ✔ | ✔ |
+| MPS Iron Ore Truck | ✔ | ✔ |
+| Balogh Steel Truck | ✔ | ✔ |
+| Balogh Armoured Truck | ✔ | ✔ |
 
 ## Comandos
 
