@@ -50,8 +50,85 @@ class Vitrine extends AIController {
       this.Veiculo(depot, this.Achar(motores, n), [cam[0], cam[1]],
                    AIOrder.OF_NON_STOP_INTERMEDIATE | AIOrder.OF_NO_LOAD | AIOrder.OF_NO_UNLOAD);
     }
+    AILog.Info("IDX " + idx);
+    if (idx == 1) this.Ferrovias(c, motores);
     AILog.Info("PRONTO");
     while (true) this.Sleep(1000);
+  }
+
+  // Linhas de trem retas (uma composição por linha) em faixas planas perto da cidade.
+  function Ferrovias(c, motores) {
+    local trens = AIEngineList(AIVehicle.VT_RAIL);
+    local nomes = {};
+    foreach (e, _ in trens) { if (!AIEngine.IsBuildable(e)) continue; nomes[AIEngine.GetName(e)] <- e; }
+    local comp = [
+      ["Kirby", ["Passenger", "Passenger", "Mail"]],
+      ["A4", ["Passenger", "Passenger", "Passenger", "Mail"]],
+      ["Jubilee", ["Coal", "Oil", "Livestock", "Goods", "Grain"]],
+      ["8P", ["Wood", "Iron Ore", "Steel", "Armoured", "Coal"]],
+    ];
+    AIRail.SetCurrentRailType(AIRailTypeList().Begin());
+    local feitas = 0;
+    local usadas = [];
+    local tl = AITileList();
+    local cx = AIMap.GetTileX(c), cy = AIMap.GetTileY(c);
+    local mx = AIMap.GetMapSizeX() - 2, my = AIMap.GetMapSizeY() - 2;
+    local x0 = max(1, cx - 40), y0 = max(1, cy - 40), x1 = min(mx - 18, cx + 40), y1 = min(my - 2, cy + 40);
+    tl.AddRectangle(AIMap.GetTileIndex(x0, y0), AIMap.GetTileIndex(x1, y1));
+    tl.Valuate(AIMap.DistanceManhattan, c);
+    tl.Sort(AIList.SORT_BY_VALUE, true);
+    local N = 17;
+    local tentativas = 0;
+    local nb = 0, nt = 0, nw = 0, nv = 0;
+    foreach (k, _ in tl) { if (AITile.IsBuildable(k)) nb++; if (AITile.HasTreeOnTile(k)) nt++; if (AITile.IsWaterTile(k)) nw++; nv++; }
+    AILog.Info("DIAG tiles " + nv + " construiveis " + nb + " arvores " + nt + " agua " + nw);
+    foreach (t, _ in tl) {
+      if (feitas >= comp.len()) break;
+      local ok = true;
+      foreach (u in usadas) if (abs(AIMap.GetTileY(u) - AIMap.GetTileY(t)) < 3 && abs(AIMap.GetTileX(u) - AIMap.GetTileX(t)) < N + 2) ok = false;
+      if (!ok) continue;
+      for (local i = 0; i < N && ok; i++) {
+        local k = t + AIMap.GetTileIndex(i, 0);
+        if (!AIMap.IsValidTile(k) || AITile.IsWaterTile(k) || AITile.IsCoastTile(k) || !(AITile.IsBuildable(k) || AITile.HasTreeOnTile(k))) ok = false;
+      }
+      if (!ok) continue;
+      tentativas++;
+      for (local i = 0; i < N; i++) if (AITile.HasTreeOnTile(t + AIMap.GetTileIndex(i, 0))) AITile.DemolishTile(t + AIMap.GetTileIndex(i, 0));
+      // aplaina a faixa (terraplenagem) se não estiver plana
+      AITile.LevelTiles(t, t + AIMap.GetTileIndex(N, 1));
+      for (local i = 0; i < N && ok; i++) if (AITile.GetSlope(t + AIMap.GetTileIndex(i, 0)) != AITile.SLOPE_FLAT) ok = false;
+      if (!ok) continue;
+      local alt = AITile.GetMinHeight(t);
+      for (local i = 0; i < N && ok; i++) if (AITile.GetMinHeight(t + AIMap.GetTileIndex(i, 0)) != alt) ok = false;
+      if (!ok) continue;
+      // [depósito][estação A x5][trilho][estação B x5]
+      local depot = t;
+      local a = t + AIMap.GetTileIndex(1, 0);
+      local b = t + AIMap.GetTileIndex(N - 4, 0);
+      if (!AIRail.BuildRailStation(a, AIRail.RAILTRACK_NE_SW, 1, 4, AIStation.STATION_NEW)) continue;
+      if (!AIRail.BuildRailStation(b, AIRail.RAILTRACK_NE_SW, 1, 4, AIStation.STATION_NEW)) continue;
+      for (local i = 5; i < N - 4; i++) AIRail.BuildRailTrack(t + AIMap.GetTileIndex(i, 0), AIRail.RAILTRACK_NE_SW);
+      if (!AIRail.BuildRailDepot(depot, a)) continue;
+      usadas.append(t);
+      local cfg = comp[feitas];
+      local loco = this.Achar(nomes, cfg[0]);
+      local v = AIVehicle.BuildVehicle(depot, loco);
+      AILog.Info("TREM " + cfg[0] + " -> " + v + " " + AIError.GetLastErrorString() + " LINHA " + t);
+      if (AIVehicle.IsValidVehicle(v)) {
+        foreach (w in cfg[1]) {
+          local we = this.Achar(nomes, w);
+          if (we == null) continue;
+          local wv = AIVehicle.BuildVehicle(depot, we);
+          if (AIVehicle.IsValidVehicle(wv)) AIVehicle.MoveWagon(wv, 0, v, AIVehicle.GetNumWagons(v) - 1);
+        }
+        AIOrder.AppendOrder(v, a, AIOrder.OF_NON_STOP_INTERMEDIATE);
+        AIOrder.AppendOrder(v, b, AIOrder.OF_NON_STOP_INTERMEDIATE);
+        AIVehicle.StartStopVehicle(v);
+      }
+      feitas++;
+      this.Sleep(40);
+    }
+    AILog.Info("FERROVIAS feitas " + feitas + " tentativas " + tentativas);
   }
 
   function Achar(motores, trecho) {

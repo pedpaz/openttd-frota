@@ -506,10 +506,7 @@ VEICULOS = [
     ('balogh_armoured_truck', 'Balogh Armoured Truck', lambda M: (caminhao_1930(M), bau(M, 1.55, 'grey', ripas=True, janelas=True), para_lamas_traseiros(M), lanternas_traseiras(M, BB - 0.05))),
 ]
 
-only = os.environ.get('ONLY')
-for slug, nome, build in VEICULOS:
-    if only and slug != only:
-        continue
+def exportar(slug, build):
     reset()
     MATS.clear()
     M = materiais(COMPANY)
@@ -518,3 +515,11 @@ for slug, nome, build in VEICULOS:
         ob.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, slug + '.glb'), use_selection=True, export_apply=True, export_format='GLB')
     print('OK', slug, len(bpy.context.collection.objects), 'peças')
+
+
+if __name__ == '__main__':
+  only = os.environ.get('ONLY')
+  for slug, nome, build in VEICULOS:
+    if only and slug != only:
+        continue
+    exportar(slug, build)

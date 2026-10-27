@@ -16,6 +16,47 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPRITES = os.path.join(RAIZ, 'sprites')
 BUILD = os.path.join(RAIZ, 'build')
 
+SPRITES_TRENS = os.path.join(RAIZ, 'sprites-trens')
+
+# Física dos rodoviários (peso vazio real do tipo, potência, aderência e arrasto pelo formato da carroceria).
+# A capacidade e o preço continuam os do jogo original. Ver README, seção "Física".
+FISICA = {
+    #                        peso t, potência hp, coef. tração, arrasto
+    'mps_regal_bus':         (6.4, 90, 0.42, 0.13),
+    'balogh_coal_truck':     (6.0, 120, 0.45, 0.09),
+    'mps_mail_truck':        (4.2, 120, 0.42, 0.11),
+    'witcombe_oil_tanker':   (6.3, 120, 0.45, 0.08),
+    'talbott_livestock_van': (5.6, 120, 0.45, 0.11),
+    'balogh_goods_truck':    (5.4, 120, 0.45, 0.11),
+    'hereford_grain_truck':  (5.8, 120, 0.45, 0.09),
+    'witcombe_wood_truck':   (5.5, 120, 0.45, 0.10),
+    'mps_iron_ore_truck':    (6.2, 120, 0.45, 0.09),
+    'balogh_steel_truck':    (5.6, 120, 0.45, 0.09),
+    'balogh_armoured_truck': (6.8, 120, 0.42, 0.11),
+}
+
+# Trens de 1950: slug -> (id original, nome, partes em unidades de comprimento; a 1ª é a própria locomotiva/vagão)
+TRENS = {
+    'kirby_paul_tank':    (0, 'Kirby Paul Tank', [8, 4]),
+    'chaney_jubilee':     (8, "Chaney 'Jubilee'", [8, 8, 8, 2]),
+    'ginzu_a4':           (9, "Ginzu 'A4'", [8, 8, 8, 4]),
+    'sh_8p':              (10, "SH '8P'", [8, 8, 8, 4]),
+    'passenger_carriage': (27, 'Passenger Carriage', [8]),
+    'mail_van':           (28, 'Mail Van', [8]),
+    'coal_truck':         (29, 'Coal Truck', [8]),
+    'oil_tanker':         (30, 'Oil Tanker', [8]),
+    'livestock_van':      (31, 'Livestock Van', [8]),
+    'goods_van':          (32, 'Goods Van', [8]),
+    'grain_hopper':       (33, 'Grain Hopper', [8]),
+    'wood_truck':         (34, 'Wood Truck', [8]),
+    'iron_ore_hopper':    (35, 'Iron Ore Hopper', [8]),
+    'steel_truck':        (36, 'Steel Truck', [8]),
+    'armoured_van':       (37, 'Armoured Van', [8]),
+}
+# posição da fumaça (chaminé) em relação ao centro da 1ª parte: negativo = para a frente (unidades de comprimento)
+FUMACA = {'kirby_paul_tank': -3, 'chaney_jubilee': -2, 'ginzu_a4': 1, 'sh_8p': -2}
+ID_PARTES = 200   # ids novos para as partes articuladas (tênder e trechos da locomotiva)
+
 # slug -> (id local do veículo rodoviário no TTD original = EngineID - 116, nome)
 VEICULOS = {
     'mps_regal_bus':          (0,  'MPS Regal Bus'),
@@ -65,13 +106,27 @@ CC_MEIO = 202          # tom do meio da faixa de cor da empresa (198..205) na pa
 
 
 def folha(quadros, k, modo='RGBA'):
-    w, h = W4 * k // 4, H4 * k // 4
+    W4q, H4q = quadros[0].size
+    w, h = W4q * k // 4, H4q * k // 4
     img = Image.new(modo, (PAD + len(quadros) * (w + PAD), h + 2 * PAD), 0)
     for i, q in enumerate(quadros):
         if k != 4:
             q = q.resize((w, h), Image.LANCZOS if modo == 'RGBA' else Image.BOX)
         img.paste(q, (PAD + i * (w + PAD), PAD))
     return img, w, h
+
+
+def limpar_sombra(q):
+    """Tira pontinhos soltos da sombra (ruído do render no chão): mediana só na parte de sombra pura."""
+    import numpy as np
+    from PIL import ImageFilter
+    a = np.array(q)
+    rgbmax = a[..., :3].max(axis=2)
+    sombra = (rgbmax < 40) & (a[..., 3] < 235)
+    alfa_s = np.where(sombra, a[..., 3], 0).astype('uint8')
+    filt = np.array(Image.fromarray(alfa_s).filter(ImageFilter.MedianFilter(5)))
+    a[..., 3] = np.where(sombra, filt, a[..., 3])
+    return Image.fromarray(a)
 
 
 def normalizar_pintura(quadros, mascaras):
@@ -128,53 +183,108 @@ def bloco(nome_set, zoom, arquivo, w, h, n, mascara=None):
     return cab + '\n' + '\n'.join(linhas) + '\n}\n'
 
 
+def conjunto(pasta, base, raw, permitidos):
+    """Monta as folhas (1x, 2x, 4x, máscaras e base 8 bits) de um conjunto de 8 direções e devolve o NML
+    do spriteset, ou None se faltam renders."""
+    arqs = [os.path.join(pasta, f'{i}_{d}.png') for i, d in enumerate(DIRS)]
+    if not all(os.path.exists(a) for a in arqs):
+        return None
+    quadros = [limpar_sombra(Image.open(a).convert('RGBA')) for a in arqs]
+    W4q, H4q = quadros[0].size
+    arqs_m = [os.path.join(pasta, f'm{i}_{d}.png') for i, d in enumerate(DIRS)]
+    tem_mascara = all(os.path.exists(a) for a in arqs_m)
+    if tem_mascara:
+        mascaras = [Image.open(a).convert('L') for a in arqs_m]
+        quadros = normalizar_pintura(quadros, mascaras)
+    for nome_esc, k in ESCALAS.items():
+        img, w, h = folha(quadros, k)
+        img.save(os.path.join(BUILD, f'{base}_{nome_esc}.png'))
+        sel = None
+        if tem_mascara:
+            mimg, _, _ = folha(mascaras, k, 'L')
+            m8, sel = mascara_8bpp(img, mimg, raw)
+            m8.save(os.path.join(BUILD, f'{base}_{nome_esc}_mask.png'))
+        if k == 1:
+            base8 = quantizar(img, raw, permitidos)
+            if sel is not None:
+                base8 = pintura_na_base(base8, img, sel)
+            base8.save(os.path.join(BUILD, f'{base}_8bpp.png'))
+    s = f'{base}_set'
+    mk = (lambda e: f'{base}_{e}_mask.png') if tem_mascara else (lambda e: None)
+    return ''.join([
+        bloco(s, None, f'{base}_8bpp.png', W4q // 4, H4q // 4, 8),
+        bloco(s, 'ZOOM_LEVEL_NORMAL', f'{base}_1x.png', W4q // 4, H4q // 4, 8, mk('1x')),
+        bloco(s, 'ZOOM_LEVEL_IN_2X', f'{base}_2x.png', W4q // 2, H4q // 2, 8, mk('2x')),
+        bloco(s, 'ZOOM_LEVEL_IN_4X', f'{base}_4x.png', W4q, H4q, 8, mk('4x')),
+    ])
+
+
 def main():
     os.makedirs(BUILD, exist_ok=True)
     os.makedirs(os.path.join(BUILD, 'lang'), exist_ok=True)
     raw, permitidos = paleta_ttd()
     nml_txt = [
         'grf {\n    grfid: "PH\\01\\01";\n    name: string(STR_GRF_NAME);\n    desc: string(STR_GRF_DESC);\n'
-        '    version: 2;\n    min_compatible_version: 1;\n}\n'
+        '    version: 3;\n    min_compatible_version: 1;\n}\n'
     ]
     feitos = []
+    # ---- rodoviários ----
     for slug, (vid, nome) in VEICULOS.items():
-        pasta = os.path.join(SPRITES, slug)
-        arqs = [os.path.join(pasta, f'{i}_{d}.png') for i, d in enumerate(DIRS)]
-        if not all(os.path.exists(a) for a in arqs):
+        blocos = conjunto(os.path.join(SPRITES, slug), slug, raw, permitidos)
+        if blocos is None:
             print(f'  -- {nome}: sem renders, mantém o gráfico original')
             continue
-        quadros = [Image.open(a).convert('RGBA') for a in arqs]
-        arqs_m = [os.path.join(pasta, f'm{i}_{d}.png') for i, d in enumerate(DIRS)]
-        tem_mascara = all(os.path.exists(a) for a in arqs_m)
-        if tem_mascara:
-            mascaras = [Image.open(a).convert('L') for a in arqs_m]
-            quadros = normalizar_pintura(quadros, mascaras)
-        for nome_esc, k in ESCALAS.items():
-            img, w, h = folha(quadros, k)
-            img.save(os.path.join(BUILD, f'{slug}_{nome_esc}.png'))
-            sel = None
-            if tem_mascara:
-                mimg, _, _ = folha(mascaras, k, 'L')
-                m8, sel = mascara_8bpp(img, mimg, raw)
-                m8.save(os.path.join(BUILD, f'{slug}_{nome_esc}_mask.png'))
-            if k == 1:
-                base8 = quantizar(img, raw, permitidos)
-                if sel is not None:
-                    base8 = pintura_na_base(base8, img, sel)
-                base8.save(os.path.join(BUILD, f'{slug}_8bpp.png'))
-        s = f'{slug}_set'
-        mk = (lambda e: f'{slug}_{e}_mask.png') if tem_mascara else (lambda e: None)
-        nml_txt.append(bloco(s, None, f'{slug}_8bpp.png', W4 // 4, H4 // 4, 8))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_NORMAL', f'{slug}_1x.png', W4 // 4, H4 // 4, 8, mk('1x')))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_2X', f'{slug}_2x.png', W4 // 2, H4 // 2, 8, mk('2x')))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_4X', f'{slug}_4x.png', W4, H4, 8, mk('4x')))
+        nml_txt.append(blocos)
+        fis = ''
+        if slug in FISICA:
+            peso, pot, te, ar = FISICA[slug]
+            fis = (f' weight: {peso} ton; power: {pot} hp;'
+                   f' tractive_effort_coefficient: {te}; air_drag_coefficient: {ar};')
         nml_txt.append(
             f'item(FEAT_ROADVEHS, {slug}_item, {vid}) {{\n'
-            f'    property {{ sprite_id: SPRITE_ID_NEW_ROADVEH; }}\n'
-            f'    graphics {{ default: {s}; }}\n}}\n'
+            f'    property {{ sprite_id: SPRITE_ID_NEW_ROADVEH;{fis} }}\n'
+            f'    graphics {{ default: {slug}_set; }}\n}}\n'
         )
         feitos.append(nome)
         print(f'  ok {nome}')
+    # ---- trens (com partes articuladas no comprimento real) ----
+    prox = ID_PARTES
+    for slug, (vid, nome, partes) in TRENS.items():
+        pastas = [os.path.join(SPRITES_TRENS, slug, f'p{p}') for p in range(len(partes))]
+        blocos = [conjunto(pa, f'{slug}_p{p}', raw, permitidos) for p, pa in enumerate(pastas)]
+        if any(b is None for b in blocos):
+            print(f'  -- {nome}: sem renders, mantém o gráfico original')
+            continue
+        nml_txt.extend(blocos)
+        ids = []
+        for p in range(1, len(partes)):
+            pid = prox; prox += 1
+            ids.append(pid)
+            nml_txt.append(
+                f'item(FEAT_TRAINS, {slug}_parte{p}, {pid}) {{\n'
+                f'    property {{\n'
+                f'        sprite_id: SPRITE_ID_NEW_TRAIN; climates_available: NO_CLIMATE;\n'
+                f'        introduction_date: date(1920, 1, 1); model_life: VEHICLE_NEVER_EXPIRES; vehicle_life: 30;\n'
+                f'        length: {partes[p]}; weight: 0 ton; power: 0 hp; cost_factor: 0; running_cost_factor: 0;\n'
+                f'        refittable_cargo_classes: NO_CARGO_CLASS; default_cargo_type: 0; cargo_capacity: 0;\n'
+                f'    }}\n'
+                f'    graphics {{ default: {slug}_p{p}_set; }}\n}}\n'
+            )
+        fum = f' visual_effect_and_powered: visual_effect_and_powered(VISUAL_EFFECT_STEAM, {FUMACA[slug]}, DISABLE_WAGON_POWER);' if slug in FUMACA else ''
+        artic = ''
+        if ids:
+            casos = ' '.join(f'{p}: return {slug}_parte{p};' for p in range(1, len(partes)))
+            nml_txt.append(
+                f'switch(FEAT_TRAINS, SELF, {slug}_artic, extra_callback_info1) {{ {casos} return CB_RESULT_NO_MORE_ARTICULATED_PARTS; }}\n'
+            )
+            artic = f' articulated_part: {slug}_artic;'
+        nml_txt.append(
+            f'item(FEAT_TRAINS, {slug}_item, {vid}) {{\n'
+            f'    property {{ sprite_id: SPRITE_ID_NEW_TRAIN; length: {partes[0]};{fum} }}\n'
+            f'    graphics {{{artic} default: {slug}_p0_set; }}\n}}\n'
+        )
+        feitos.append(nome)
+        print(f'  ok {nome} ({sum(partes)} unidades, {len(partes)} partes)')
     with open(os.path.join(BUILD, 'frota.nml'), 'w') as f:
         f.write('\n'.join(nml_txt))
     shutil.copy(os.path.join(RAIZ, 'src', 'lang', 'english.lng'), os.path.join(BUILD, 'lang', 'english.lng'))

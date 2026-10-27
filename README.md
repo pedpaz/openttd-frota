@@ -41,6 +41,29 @@ python3 ferramentas/renderizar.py -- glb/mps_regal_bus.glb sprites/mps_regal_bus
 
 Licença: GPL v2, como o OpenTTD.
 
+## Trens de 1950 (tamanho real)
+
+| Trem | Tipo real | Comprimento | Partes no jogo |
+|---|---|---|---|
+| Kirby Paul Tank | GWR 5700 (0-6-0 tanque) | 9,0 m | 8 + 4 |
+| Chaney 'Jubilee' | LMS Jubilee + tênder Fowler | 19,5 m | 8 + 8 + 8 + 2 |
+| Ginzu 'A4' | LNER A4 + tênder de corredor | 21,0 m | 8 + 8 + 8 + 4 |
+| SH '8P' | BR Standard 8P 71000 + tênder BR1J | 21,0 m | 8 + 8 + 8 + 4 |
+| 11 vagões | tipos britânicos de 4 rodas | 6,0 m | 8 |
+
+Escala: 1 tile = 12 m, então 8 unidades de comprimento (meio tile) = 6 m. As locomotivas com tênder ocupam o espaço
+de 3 a 3,5 vagões, como na vida real. As partes extras (ids 200+) são articuladas, não têm peso, potência, custo nem
+carga: potência, peso, velocidade, preço e capacidade continuam os do jogo original.
+
+Modelos em `modelos/trens.py`; render dividido em partes por `ferramentas/renderizar_trem.py` (corta o modelo no
+shader e centraliza cada parte) ou `ferramentas/renderizar_trens.sh` para todos.
+
+## Física
+
+Os 11 rodoviários usam o peso vazio de caminhões e ônibus britânicos da época (4,2 a 6,8 t), a potência original,
+coeficiente de tração de pneu (0,42 a 0,45) e arrasto pelo formato da carroceria (tanque e caçamba menos, baú e
+ônibus mais). Valores na tabela `FISICA` do `ferramentas/montar.py`. A carga continua pesando conforme o tipo de carga.
+
 ## Cor da empresa
 
 A pintura de cada veículo sai do render em cinza e ganha uma **máscara**: o jogo troca esse cinza pela cor de cada companhia e só aproveita o sombreado do render. Os materiais tratados como pintura estão em `NOMES_PINTURA`, no `ferramentas/renderizar.py`.

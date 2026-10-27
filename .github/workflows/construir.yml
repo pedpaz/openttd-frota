@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Instalar NML e Pillow
-        run: pip install nml pillow
+        run: pip install nml pillow numpy
       - name: Montar e compilar
         run: ./construir.sh
       - name: Publicar o .grf
