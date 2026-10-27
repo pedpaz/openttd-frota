@@ -40,3 +40,11 @@ python3 ferramentas/renderizar.py -- glb/mps_regal_bus.glb sprites/mps_regal_bus
 ```
 
 Licença: GPL v2, como o OpenTTD.
+
+## Cor da empresa
+
+A pintura de cada veículo sai do render em cinza e ganha uma **máscara**: o jogo troca esse cinza pela cor de cada companhia e só aproveita o sombreado do render. Os materiais tratados como pintura estão em `NOMES_PINTURA`, no `ferramentas/renderizar.py`.
+
+## Teste
+
+`teste/ai/Vitrine` é uma IA usada só nos previews: ela pega a maior cidade, monta pontos de ônibus e de caminhão e põe linhas para rodar.

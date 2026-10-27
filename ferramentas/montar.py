@@ -61,22 +61,70 @@ def quantizar(rgba, raw, permitidos):
     return out
 
 
-def folha(quadros, k):
+CC_MEIO = 202          # tom do meio da faixa de cor da empresa (198..205) na paleta do TTD
+
+
+def folha(quadros, k, modo='RGBA'):
     w, h = W4 * k // 4, H4 * k // 4
-    img = Image.new('RGBA', (PAD + len(quadros) * (w + PAD), h + 2 * PAD), (0, 0, 0, 0))
+    img = Image.new(modo, (PAD + len(quadros) * (w + PAD), h + 2 * PAD), 0)
     for i, q in enumerate(quadros):
         if k != 4:
-            q = q.resize((w, h), Image.LANCZOS)
+            q = q.resize((w, h), Image.LANCZOS if modo == 'RGBA' else Image.BOX)
         img.paste(q, (PAD + i * (w + PAD), PAD))
     return img, w, h
 
 
-def bloco(nome_set, zoom, arquivo, w, h, n):
+def normalizar_pintura(quadros, mascaras):
+    """A pintura vem cinza do render. O jogo usa só o brilho (o maior canal RGB, 128 = tom da paleta),
+    então reescalamos o cinza para que o brilho típico da pintura fique em 128."""
+    vals = []
+    for q, m in zip(quadros, mascaras):
+        for (r, g, b, a), mv in zip(getattr(q, 'get_flattened_data', q.getdata)(), getattr(m, 'get_flattened_data', m.getdata)()):
+            if mv > 127 and a > 127:
+                vals.append(max(r, g, b))
+    if not vals:
+        return quadros
+    vals.sort()
+    fator = 128.0 / max(1, vals[len(vals) // 2])
+    saida = []
+    for q, m in zip(quadros, mascaras):
+        esc = q.point(lambda v: min(255, int(v * fator + 0.5)))
+        r, g, b, a = esc.split()
+        q2 = Image.merge('RGBA', (r, g, b, q.getchannel('A')))
+        q = q.copy(); q.paste(q2, mask=m.point(lambda v: 255 if v > 127 else 0))
+        saida.append(q)
+    return saida
+
+
+def mascara_8bpp(rgba, masc, raw):
+    """Máscara de cor da empresa: índice CC_MEIO onde há pintura, 0 no resto."""
+    sel = Image.eval(masc, lambda v: 255 if v > 127 else 0)
+    alfa = rgba.getchannel('A').point(lambda a: 255 if a > 127 else 0)
+    sel = Image.composite(sel, Image.new('L', sel.size, 0), alfa)
+    out = Image.new('P', rgba.size, 0); out.putpalette(raw)
+    out.paste(CC_MEIO, mask=sel)
+    return out, sel
+
+
+def pintura_na_base(base8, rgba, sel):
+    """Na base 8 bits, a pintura usa os 8 tons de cor da empresa conforme o brilho."""
+    px = base8.load(); w, h = base8.size
+    sel_px = sel.load(); src = rgba.load()
+    for y in range(h):
+        for x in range(w):
+            if sel_px[x, y]:
+                r, g, b, a = src[x, y]
+                px[x, y] = 198 + max(0, min(7, int(max(r, g, b) / 256 * 8)))
+    return base8
+
+
+def bloco(nome_set, zoom, arquivo, w, h, n, mascara=None):
     linhas = [f'    [{PAD + i * (w + PAD)}, {PAD}, {w}, {h}, {-w // 2}, {-h // 2}]' for i in range(n)]
     if zoom is None:
         cab = f'spriteset({nome_set}, "{arquivo}") {{'
     else:
-        cab = f'alternative_sprites({nome_set}, {zoom}, BIT_DEPTH_32BPP, "{arquivo}") {{'
+        extra = f', "{mascara}"' if mascara else ''
+        cab = f'alternative_sprites({nome_set}, {zoom}, BIT_DEPTH_32BPP, "{arquivo}"{extra}) {{'
     return cab + '\n' + '\n'.join(linhas) + '\n}\n'
 
 
@@ -96,16 +144,30 @@ def main():
             print(f'  -- {nome}: sem renders, mantém o gráfico original')
             continue
         quadros = [Image.open(a).convert('RGBA') for a in arqs]
+        arqs_m = [os.path.join(pasta, f'm{i}_{d}.png') for i, d in enumerate(DIRS)]
+        tem_mascara = all(os.path.exists(a) for a in arqs_m)
+        if tem_mascara:
+            mascaras = [Image.open(a).convert('L') for a in arqs_m]
+            quadros = normalizar_pintura(quadros, mascaras)
         for nome_esc, k in ESCALAS.items():
             img, w, h = folha(quadros, k)
             img.save(os.path.join(BUILD, f'{slug}_{nome_esc}.png'))
+            sel = None
+            if tem_mascara:
+                mimg, _, _ = folha(mascaras, k, 'L')
+                m8, sel = mascara_8bpp(img, mimg, raw)
+                m8.save(os.path.join(BUILD, f'{slug}_{nome_esc}_mask.png'))
             if k == 1:
-                quantizar(img, raw, permitidos).save(os.path.join(BUILD, f'{slug}_8bpp.png'))
+                base8 = quantizar(img, raw, permitidos)
+                if sel is not None:
+                    base8 = pintura_na_base(base8, img, sel)
+                base8.save(os.path.join(BUILD, f'{slug}_8bpp.png'))
         s = f'{slug}_set'
+        mk = (lambda e: f'{slug}_{e}_mask.png') if tem_mascara else (lambda e: None)
         nml_txt.append(bloco(s, None, f'{slug}_8bpp.png', W4 // 4, H4 // 4, 8))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_NORMAL', f'{slug}_1x.png', W4 // 4, H4 // 4, 8))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_2X', f'{slug}_2x.png', W4 // 2, H4 // 2, 8))
-        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_4X', f'{slug}_4x.png', W4, H4, 8))
+        nml_txt.append(bloco(s, 'ZOOM_LEVEL_NORMAL', f'{slug}_1x.png', W4 // 4, H4 // 4, 8, mk('1x')))
+        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_2X', f'{slug}_2x.png', W4 // 2, H4 // 2, 8, mk('2x')))
+        nml_txt.append(bloco(s, 'ZOOM_LEVEL_IN_4X', f'{slug}_4x.png', W4, H4, 8, mk('4x')))
         nml_txt.append(
             f'item(FEAT_ROADVEHS, {slug}_item, {vid}) {{\n'
             f'    property {{ sprite_id: SPRITE_ID_NEW_ROADVEH; }}\n'

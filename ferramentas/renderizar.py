@@ -23,6 +23,15 @@ sc.render.resolution_percentage = 100
 sc.view_settings.view_transform = 'Standard'
 
 bpy.ops.import_scene.gltf(filepath=GLB)
+
+# Pintura da empresa: vira cinza neutro (o jogo troca pela cor de cada companhia usando a máscara;
+# do render só aproveita o brilho). Guardamos quais materiais são pintura.
+NOMES_PINTURA = ('Pintura empresa', 'Vermelho London General', 'Vermelho GPO')
+PINTURA = [m for m in bpy.data.materials if m.name.startswith(NOMES_PINTURA)]
+for m in PINTURA:
+    bsdf = m.node_tree.nodes.get('Principled BSDF')
+    if bsdf:
+        bsdf.inputs['Base Color'].default_value = (0.30, 0.30, 0.30, 1)
 veic = bpy.data.objects.new('veiculo', None)
 sc.collection.objects.link(veic)
 for o in list(sc.objects):
@@ -62,8 +71,36 @@ chao.is_shadow_catcher = True
 # direções do OpenTTD na ordem dos sprites: N, NE, E, SE, S, SW, W, NW
 # Na tela: NE = acima-direita (= +X do mundo), NW = acima-esquerda (= +Y).
 yaw = {'N': 45, 'NE': 0, 'E': -45, 'SE': -90, 'S': -135, 'SW': 180, 'W': 135, 'NW': 90}
-for i, k in enumerate(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']):
+DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+for i, k in enumerate(DIRS):
     veic.rotation_euler = (0, 0, math.radians(yaw[k]))
     sc.render.filepath = os.path.join(OUTDIR, f'{i}_{k}.png')
     bpy.ops.render.render(write_still=True)
     print('render', k)
+
+# ---- passe da máscara: pintura em branco, resto em preto, sem sombra nem luz ----
+def emissao(nome, cor):
+    m = bpy.data.materials.new(nome)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    em = nt.nodes.new('ShaderNodeEmission'); em.inputs['Color'].default_value = (*cor, 1); em.inputs['Strength'].default_value = 1
+    out = nt.nodes.new('ShaderNodeOutputMaterial')
+    nt.links.new(em.outputs['Emission'], out.inputs['Surface'])
+    return m
+
+branco, preto = emissao('mask_branco', (1, 1, 1)), emissao('mask_preto', (0, 0, 0))
+for o in sc.objects:
+    if o.type != 'MESH' or o is chao:
+        continue
+    for slot in o.material_slots:
+        slot.material = branco if slot.material in PINTURA else preto
+chao.hide_render = True
+world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0
+sc.cycles.samples = 8
+sc.cycles.use_denoising = False
+for i, k in enumerate(DIRS):
+    veic.rotation_euler = (0, 0, math.radians(yaw[k]))
+    sc.render.filepath = os.path.join(OUTDIR, f'm{i}_{k}.png')
+    bpy.ops.render.render(write_still=True)
+    print('mascara', k)
